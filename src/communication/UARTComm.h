@@ -10,15 +10,17 @@ class UARTComm
 {
   public:
     UARTComm(Stream& serial, size_t chunkSize, PacketSerial& packetSerial);
-    void   begin();
-    void   handleCommunication();
-    void   setOnTransmitStart(void (*callback)());
-    void   setOnTransmitEnd(void (*callback)());
-    void   setOnError(void (*callback)());
-    void   setOnReceiveComplete(void (*callback)());
-    void   setOnDebugCallback(void (*callback)(std::string));
-    size_t available();
-    void   handlePacketReceived(const uint8_t* buffer, size_t size);
+    void     begin();
+    void     handleCommunication();
+    void     setOnTransmitStart(void (*callback)());
+    void     setOnTransmitEnd(void (*callback)());
+    void     setOnError(void (*callback)());
+    void     setOnReceiveComplete(void (*callback)());
+    void     setOnDebugCallback(void (*callback)(std::string));
+    size_t   available();
+    void     handlePacketReceived(const uint8_t* buffer, size_t size);
+    uint8_t* getCommandsMemory();
+    size_t   getReceivedLength();
 
   private:
     enum State
@@ -45,7 +47,6 @@ class UARTComm
     void allocateMemory(size_t size);
     void processReceivedChunk(const uint8_t* buffer, size_t size);
     void sendString(std::string str);
-    void debugWrite();
 };
 
 #endif

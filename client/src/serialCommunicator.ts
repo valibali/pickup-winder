@@ -50,6 +50,7 @@ class SerialCommunicator {
     console.log("Size buffer: " + sizeBuffer.toString("hex"));
     const encodedSize = Buffer.concat([cobs.encode(sizeBuffer), COBS_BYTE]);
     console.log("Encoded size buffer: " + encodedSize.toString("hex"));
+    await this.waitForPort();
     this.port.write(encodedSize);
   }
 
@@ -101,10 +102,16 @@ class SerialCommunicator {
      * @param {Buffer} data - The data read from the serial port.
      * @returns {Buffer} - The decoded data.
      */
+
+    const zeroByte = COBS_BYTE;
+    console.log(data);
+    let a = null;
     if (data.length > 0) {
-      return cobs.decode(data.slice(0, -1));
+      a = cobs.decode(data);
+      console.log(a);
+      return a;
     } else {
-      return COBS_BYTE;
+      return zeroByte;
     }
   }
 
@@ -112,15 +119,19 @@ class SerialCommunicator {
     /**
      * Reads responses from the serial port and acts accordingly.
      */
+    let seriaData = "";
     this.port.on("data", async (data) => {
       const response = this.readDecode(data);
-      console.log("Response: " + response.toString());
-      if (response.equals(Buffer.from("SIZE_ACK"))) {
-        await this.sendNextChunk();
-      } else if (response.equals(Buffer.from("ACK"))) {
-        await this.sendNextChunk();
-      } else {
-        console.log(`Unknown response: ${response.toString()}`);
+      if (response.toString().length) {
+        console.log("Response: " + response.toString());
+        if (
+          response.equals(Buffer.from("SIZE_ACK")) ||
+          response.equals(Buffer.from("ACK"))
+        ) {
+          await this.sendNextChunk();
+        } else {
+          console.log(`Unknown response: ${response.toString()}`);
+        }
       }
     });
   }

@@ -68,8 +68,9 @@ void UARTComm::processReceivedChunk(const uint8_t* buffer, size_t size)
 
 void UARTComm::sendString(std::string str)
 {
-    const uint8_t* p = reinterpret_cast<const uint8_t*>(str.c_str());
-    packetSerial.send(p, str.length());
+    uint8_t buf[str.length()];
+    memcpy(buf, str.c_str(), sizeof(buf));
+    packetSerial.send(buf, sizeof(buf));
 }
 
 void UARTComm::handlePacketReceived(const uint8_t* buffer, size_t size)
@@ -113,13 +114,18 @@ void UARTComm::handlePacketReceived(const uint8_t* buffer, size_t size)
         }
         if (onTransmitEnd)
             onTransmitEnd();
-
+#ifdef DEALLOCATE_ONRECIEVE_COMPLETE
         free(receivedData);
-        receivedData  = nullptr;
+        receivedData = nullptr;
+#endif // DEALLOCATE_ONRECIEVE_COMPLETE
         totalDataSize = 0;
         currentState  = WAITING_FOR_SIZE;
     }
 }
+
+uint8_t* UARTComm::getCommandsMemory() { return receivedData; }
+
+size_t UARTComm::getReceivedLength() { return receivedLength; }
 
 void UARTComm::setOnTransmitStart(void (*callback)()) { onTransmitStart = callback; }
 
