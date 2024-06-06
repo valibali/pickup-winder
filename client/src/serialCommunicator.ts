@@ -1,9 +1,11 @@
-import { SerialPort } from "serialport";
+import { SerialPort, ReadlineParser, DelimiterParser } from "serialport";
+import { Transform } from "stream";
 import * as fs from "fs";
 // @ts-ignore
 import * as cobs from "cobs";
 import * as crc32 from "crc-32";
 import { setTimeout as delay } from "timers/promises";
+import { COBSParser } from "./parser";
 
 const CRC_SIZE = 4;
 const COBS_BYTE = Buffer.from([0x00]);
@@ -13,6 +15,7 @@ class SerialCommunicator {
   private chunkSize: number;
   private data: Buffer;
   private offset: number;
+  private parser: Transform;
 
   constructor(
     portName: string,
@@ -27,6 +30,9 @@ class SerialCommunicator {
     this.chunkSize = chunkSize - (CRC_SIZE + COBS_BYTE.length + 1);
     this.data = this.readDataFromFile("commands.txt");
     this.offset = 0;
+    this.parser = new COBSParser({ cobs_byte: Buffer.from([0x00]) });
+    //this.parser = new DelimiterParser({ delimiter: Buffer.from([0x00]) });
+    this.port.pipe(this.parser);
   }
 
   private readDataFromFile(filePath: string): Buffer {
@@ -86,7 +92,7 @@ class SerialCommunicator {
     console.log(`Chunk sent, offset: ${offset}, size ${packet.length}`);
   }
 
-  private async waitForPort(): Promise<void> {
+  public async waitForPort(): Promise<void> {
     /**
      * Waits until the serial port is available for writing.
      */
@@ -95,42 +101,21 @@ class SerialCommunicator {
     }
   }
 
-  private readDecode(data: Buffer): Buffer {
-    /**
-     * Reads and decodes data from the serial port.
-     *
-     * @param {Buffer} data - The data read from the serial port.
-     * @returns {Buffer} - The decoded data.
-     */
-
-    const zeroByte = COBS_BYTE;
-    console.log(data);
-    let a = null;
-    if (data.length > 0) {
-      a = cobs.decode(data);
-      console.log(a);
-      return a;
-    } else {
-      return zeroByte;
-    }
-  }
-
   public async readResponse(): Promise<void> {
     /**
      * Reads responses from the serial port and acts accordingly.
      */
-    let seriaData = "";
-    this.port.on("data", async (data) => {
-      const response = this.readDecode(data);
-      if (response.toString().length) {
-        console.log("Response: " + response.toString());
+
+    this.parser.on("data", async (data) => {
+      if (data.toString().length) {
+        console.log("Response: " + data.toString());
         if (
-          response.equals(Buffer.from("SIZE_ACK")) ||
-          response.equals(Buffer.from("ACK"))
+          data.equals(Buffer.from("SIZE_ACK")) ||
+          data.equals(Buffer.from("ACK"))
         ) {
           await this.sendNextChunk();
         } else {
-          console.log(`Unknown response: ${response.toString()}`);
+          console.log(`Unknown response: ${data.toString()}`);
         }
       }
     });
@@ -151,6 +136,7 @@ const communicator = new SerialCommunicator("/dev/rfcomm0");
 
 (async () => {
   communicator.port.open();
+  await communicator.waitForPort();
   await communicator.sendTotalSize();
   await communicator.readResponse();
 })();
